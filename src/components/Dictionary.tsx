@@ -1,12 +1,9 @@
 import {useFetchDictionaries} from "../hooks/useFetchDictionaries.ts";
 import {useEffect, useState} from "react";
 import type {IDictionary} from "../types/dictionary.ts";
+import levenshtein from "../utils/levenshtein.ts";
+import {ALPHABET} from "../utils/consts.ts";
 
-const letters = [
-  'a', 'b', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'x', 'y', 'z',
-  'o‘', 'gʻ', 'sh', 'ch', 'ng'
-];
 
 function Dictionary({search}: { search?: string }) {
   const [data, setData] = useState<IDictionary[] | undefined>([]);
@@ -16,24 +13,22 @@ function Dictionary({search}: { search?: string }) {
 
   const handleSearch = () => {
     if (search) {
-      const isMatch = (word: string) => {
-        return word.toLowerCase().includes(search.toLowerCase());
-      }
+      const searchLowerCase = search.toLowerCase();
 
-      setData(
-        dictionaries.data.filter(dictionary => {
-          for (const dictionaryKey of (Object.keys(dictionary) as (keyof IDictionary)[])) {
-            if (typeof dictionary[dictionaryKey] === 'string' && isMatch(dictionary[dictionaryKey])) {
-              return true
-            }
-          }
-          return false
+      const filtered = dictionaries.data
+        .filter(dictionary => {
+          return dictionary.en.includes(searchLowerCase) ||
+            dictionary.uz.includes(searchLowerCase) ||
+            dictionary.similar.some(similar => similar.toLowerCase().includes(searchLowerCase));
         })
-      )
+        .sort((a, b) => levenshtein(searchLowerCase, a.en.toLowerCase()) - levenshtein(searchLowerCase, b.en.toLowerCase()))
+        .sort((a, b) => a.en.toLowerCase().localeCompare(b.en.toLowerCase()));
+
+      setData(filtered);
     } else {
-      setData(dictionaries.data)
+      setData(dictionaries.data);
     }
-  }
+  };
 
   const handleFilterByLetter = () => {
     if (selectedLetter) {
@@ -41,16 +36,7 @@ function Dictionary({search}: { search?: string }) {
         return word?.[0]?.toLowerCase() === selectedLetter.toLowerCase();
       }
 
-      setData(
-        dictionaries.data.filter(dictionary => {
-          for (const dictionaryKey of (Object.keys(dictionary) as (keyof IDictionary)[])) {
-            if (typeof dictionary[dictionaryKey] === 'string' && isMatch(dictionary[dictionaryKey])) {
-              return true
-            }
-          }
-          return false
-        })
-      )
+      setData(dictionaries.data.filter(dictionary => isMatch(dictionary.en)))
     } else {
       setData(dictionaries.data)
     }
@@ -82,7 +68,7 @@ function Dictionary({search}: { search?: string }) {
     <div className='flex items-center justify-center flex-col gap-10 px-40'>
       <h1 className='text-2xl font-medium'>Lug'at</h1>
       <div className='flex items-center justify-center flex-wrap gap-7'>
-        {letters.map((letter, index) => (
+        {ALPHABET.map((letter, index) => (
           <a
             className={`bg-black/90 text-white shadow-sm cursor-pointer rounded-lg hover:underline w-10 flex items-center justify-center py-2 ${selectedLetter === letter && 'bg-black/70'}`}
             key={index}
